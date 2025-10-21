@@ -1,97 +1,75 @@
 // server.js
 const express = require("express");
-const cors = require("cors");
-const fs = require("fs");
-const path = require("path");
-const bcrypt = require("bcrypt");
 const session = require("express-session");
-app.use(session({
-  secret: "ygj_secret_key",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    sameSite: "none",
-    secure: true
-  }
-}));
-const app = express();
-app.use(cors({
-  origin: "https://youthgrowingjourney.github.io",
-  credentials: true,
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
-const PORT = process.env.PORT || 3000;
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const bcrypt = require("bcrypt");
+const path = require("path");
 
-app.use(session({
-  secret: "ygj-secret-key", // kannst du später ändern
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: false } // bei HTTPS später true
-}));
+const app = express(); // <== MUSS OBEN stehen 🔥
 
-app.use(express.json()); // Damit dein Server JSON versteht
+// === Middleware ===
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Speicherort für User-Daten (wir speichern sie erstmal lokal)
-const usersFile = path.join(__dirname, "users.json");
+// CORS-Konfiguration
+app.use(
+  cors({
+    origin: [
+      "https://youthgrowingjourney.github.io", // dein Frontend
+      "http://localhost:5500", // lokales Testen
+    ],
+    credentials: true,
+  })
+);
 
-// Hilfsfunktion: Benutzer laden
-function loadUsers() {
-  if (!fs.existsSync(usersFile)) return [];
-  return JSON.parse(fs.readFileSync(usersFile));
-}
+// Session-Konfiguration
+app.use(
+  session({
+    secret: "ygj_secret_key",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // true, wenn HTTPS
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 1 Tag
+    },
+  })
+);
 
-// Hilfsfunktion: Benutzer speichern
-function saveUsers(users) {
-  fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
-}
+// === Benutzerverwaltung im Speicher ===
+let users = [];
 
-// 🧾 Registrierung
+// === ROUTEN ===
+
+// Registrierung
 app.post("/register", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const users = JSON.parse(fs.readFileSync("users.json", "utf8"));
+  const { username, email, password } = req.body;
+  if (!username || !email || !password)
+    return res.status(400).json({ message: "Missing fields" });
 
-    // Prüfen, ob Nutzer bereits existiert
-    if (users.find(u => u.username === username)) {
-      return res.status(400).json({ message: "Benutzername existiert bereits" });
-    }
+  if (users.find((u) => u.username === username))
+    return res.status(400).json({ message: "Username already exists" });
 
-    // 🔒 Passwort sicher verschlüsseln
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Benutzer speichern
-    users.push({ username, password: hashedPassword });
-    fs.writeFileSync("users.json", JSON.stringify(users, null, 2));
-
-    res.json({ message: "Registrierung erfolgreich!" });
-
-  } catch (error) {
-    console.error("Fehler bei der Registrierung:", error);
-    res.status(500).json({ message: "Interner Serverfehler" });
-  }
+  const hashedPassword = await bcrypt.hash(password, 10);
+  users.push({ username, email, password: hashedPassword });
+  res.json({ message: "User registered successfully" });
 });
 
-// 🔑 Login
+// Login
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  const users = JSON.parse(fs.readFileSync("users.json", "utf8"));
+  const user = users.find((u) => u.username === username);
+  if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-  const user = users.find(u => u.username === username);
-  if (!user) {
-    return res.status(401).json({ message: "Ungültige Anmeldedaten" });
-  }
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) return res.status(401).json({ message: "Invalid credentials" });
 
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    return res.status(401).json({ message: "Ungültige Anmeldedaten" });
-  }
-
-  // ✅ Benutzer ist eingeloggt – Session speichern
-  req.session.user = { username };
-  res.json({ message: "Login erfolgreich!" });
+  req.session.user = user.username;
+  res.json({ message: "Login successful", user: user.username });
 });
 
+// Check Auth
 app.get("/check-auth", (req, res) => {
   if (req.session.user) {
     res.json({ loggedIn: true, user: req.session.user });
@@ -100,32 +78,16 @@ app.get("/check-auth", (req, res) => {
   }
 });
 
+// Logout
 app.post("/logout", (req, res) => {
   req.session.destroy(() => {
-    res.json({ message: "Erfolgreich ausgeloggt!" });
+    res.clearCookie("connect.sid");
+    res.json({ message: "Logged out" });
   });
 });
 
+// === SERVER START ===
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🔥 Server läuft auf http://localhost:${PORT}`);
+  console.log(`🔥 Server läuft auf Port ${PORT}`);
 });
-
-// 🔒 Login-Schutz
-async function checkAuth() {
-  try {
-    const response = await fetch("http://localhost:3000/check-auth", {
-      credentials: "include"
-    });
-    const data = await response.json();
-
-    if (!data.loggedIn) {
-      // Wenn nicht eingeloggt → Weiterleitung zur Login-Seite
-      window.location.href = "login.html";
-    }
-  } catch (error) {
-    console.error("Fehler beim Auth-Check:", error);
-    window.location.href = "login.html";
-  }
-}
-
-
