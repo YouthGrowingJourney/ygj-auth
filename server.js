@@ -1,10 +1,26 @@
 // server.js
 const express = require("express");
+const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const bcrypt = require("bcrypt");
 const session = require("express-session");
+app.use(session({
+  secret: "ygj_secret_key",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    sameSite: "none",
+    secure: true
+  }
+}));
 const app = express();
+app.use(cors({
+  origin: "https://youthgrowingjourney.github.io",
+  credentials: true,
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 const PORT = process.env.PORT || 3000;
 
 app.use(session({
