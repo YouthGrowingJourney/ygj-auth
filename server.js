@@ -12,30 +12,26 @@ const app = express(); // <== MUSS OBEN stehen 🔥
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// CORS-Konfiguration
-app.use(
-  cors({
-    origin: [
-      "https://youthgrowingjourney.github.io", // dein Frontend
-      "http://localhost:5500", // lokales Testen
-    ],
-    credentials: true,
-  })
-);
+// 🔥 Wichtig: CORS korrekt einstellen
+app.use(cors({
+  origin: "https://youthgrowingjourney.github.io",
+  credentials: true
+}));
 
-// Session-Konfiguration
-app.use(
-  session({
-    secret: "ygj_secret_key",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: false, // true, wenn HTTPS
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 1 Tag
-    },
-  })
-);
+app.use(bodyParser.json());
+
+// 🔥 Session richtig konfigurieren
+app.use(session({
+  secret: "ygj_secret_key_123",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: true,           // wichtig für HTTPS
+    httpOnly: true,         // schützt vor XSS
+    sameSite: "none",       // erlaubt Cookies über verschiedene Domains
+    maxAge: 1000 * 60 * 60  // 1 Stunde
+  }
+}));
 
 // === Benutzerverwaltung im Speicher ===
 let users = [];
