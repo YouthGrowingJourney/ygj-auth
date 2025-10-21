@@ -17,24 +17,22 @@ app.set("trust proxy", 1);
 // CORS: erlaubt Requests von deiner GitHub-Page + erlaubt Cookies
 app.use(cors({
   origin: "https://youthgrowingjourney.github.io",
-  credentials: true,
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"]
+  credentials: true
 }));
 
-// Session: proxy:true + cookie settings für Cross-Site cookies
 app.use(session({
   secret: "ygj_secret_key_123",
   resave: false,
   saveUninitialized: false,
-  proxy: true,
+  proxy: true, // <== NEU (wichtig für Render HTTPS)
   cookie: {
-    secure: true,        // bei Render (HTTPS) -> true
+    secure: true,           // nötig für HTTPS
     httpOnly: true,
-    sameSite: "none",    // erlaubt Cookie cross-site
-    maxAge: 1000 * 60 * 60 * 24 // 1 Tag
+    sameSite: "none",       // erlaubt Cookies über Domains hinweg
+    maxAge: 1000 * 60 * 60  // 1 Stunde
   }
 }));
+
 
 // === Simple in-memory users (wie gehabt) ===
 let users = [];
