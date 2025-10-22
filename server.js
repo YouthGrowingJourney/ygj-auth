@@ -1,4 +1,4 @@
-// server.js (minimal korrigiert für Render + GitHub Pages)
+// server.js (final korrigiert für Render + GitHub Pages)
 const express = require("express");
 const session = require("express-session");
 const cors = require("cors");
@@ -15,24 +15,29 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.set("trust proxy", 1);
 
 // CORS: erlaubt Requests von deiner GitHub-Page + erlaubt Cookies
-app.use(cors({
-  origin: "https://youthgrowingjourney.github.io",
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: "https://youthgrowingjourney.github.io",
+    credentials: true, // Cookies dürfen gesendet werden
+  })
+);
 
-app.use(session({
-  secret: "ygj_secret_key_123",
-  resave: false,
-  saveUninitialized: false,
-  proxy: true, // <== NEU (wichtig für Render HTTPS)
-  cookie: {
-    secure: true,           // nötig für HTTPS
-    httpOnly: true,
-    sameSite: "none",       // erlaubt Cookies über Domains hinweg
-    maxAge: 1000 * 60 * 60  // 1 Stunde
-  }
-}));
-
+// Session-Setup (leicht verbessert)
+app.use(
+  session({
+    secret: "ygj_secret_key_123",
+    resave: false,
+    saveUninitialized: false,
+    proxy: true, // wichtig für Render HTTPS
+    cookie: {
+      secure: process.env.NODE_ENV === "production", // nur HTTPS in Prod
+      httpOnly: true,
+      sameSite: "none", // erlaubt Cookies über Domains hinweg
+      domain: ".onrender.com", // ✅ sorgt für Cross-Domain-Cookie
+      maxAge: 1000 * 60 * 60, // 1 Stunde
+    },
+  })
+);
 
 // === Simple in-memory users (wie gehabt) ===
 let users = [];
@@ -43,7 +48,7 @@ app.post("/register", async (req, res) => {
   if (!username || !email || !password) {
     return res.status(400).json({ message: "Missing fields" });
   }
-  if (users.find(u => u.username === username)) {
+  if (users.find((u) => u.username === username)) {
     return res.status(400).json({ message: "Username already exists" });
   }
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -54,7 +59,7 @@ app.post("/register", async (req, res) => {
 // Login: setzt req.session.user und gibt username zurück
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  const user = users.find(u => u.username === username);
+  const user = users.find((u) => u.username === username);
   if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
   const valid = await bcrypt.compare(password, user.password);
@@ -78,9 +83,14 @@ app.get("/check-auth", (req, res) => {
 
 // Logout: zerstört session und cleared cookie
 app.post("/logout", (req, res) => {
-  req.session.destroy(err => {
+  req.session.destroy((err) => {
     // clear cookie, s.t. browser löscht es
-    res.clearCookie("connect.sid", { path: "/", secure: true, sameSite: "none" });
+    res.clearCookie("connect.sid", {
+      path: "/",
+      secure: true,
+      sameSite: "none",
+      domain: ".onrender.com", // ✅ wichtig für Render
+    });
     return res.json({ message: "Logged out" });
   });
 });
