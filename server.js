@@ -33,7 +33,6 @@ app.use(
       secure: process.env.NODE_ENV === "production", // nur HTTPS in Prod
       httpOnly: true,
       sameSite: "none", // erlaubt Cookies über Domains hinweg
-      domain: ".onrender.com", // ✅ sorgt für Cross-Domain-Cookie
       maxAge: 1000 * 60 * 60, // 1 Stunde
     },
   })
@@ -89,7 +88,6 @@ app.post("/logout", (req, res) => {
       path: "/",
       secure: true,
       sameSite: "none",
-      domain: ".onrender.com", // ✅ wichtig für Render
     });
     return res.json({ message: "Logged out" });
   });
