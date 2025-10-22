@@ -28,15 +28,16 @@ app.use(
     secret: "ygj_secret_key_123",
     resave: false,
     saveUninitialized: false,
-    proxy: true, // wichtig für Render HTTPS
+    proxy: true,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // nur HTTPS in Prod
+      secure: true,                // HTTPS notwendig (Render hat HTTPS ✅)
       httpOnly: true,
-      sameSite: "none", // erlaubt Cookies über Domains hinweg
-      maxAge: 1000 * 60 * 60, // 1 Stunde
+      sameSite: "none",            // wichtig für GitHub Pages + Render
+      maxAge: 1000 * 60 * 60,      // 1 Stunde
     },
   })
 );
+
 
 // === Simple in-memory users (wie gehabt) ===
 let users = [];
